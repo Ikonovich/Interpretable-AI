@@ -5,13 +5,14 @@ import random
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 
+from PIL import Image, ImageOps
 
 class SortedFolderImageDataset(Dataset):
     '''
     Used to access an image dataset that has been pre-sorted into folders, as a Pytorch dataset.
     '''
 
-    def __init__(self, folder_paths: list[str], folder_labels: list, percent_range: tuple[float, float] = (0, 1)):
+    def __init__(self, folder_paths: list[str], folder_labels: list, percent_range: tuple[float, float] = (0, 1), transform = None, shuffle: bool = True):
         '''
         Indexes of labels must match the appropriate folder path's index in the corresponding list.
         :param folder_paths: A list of folder paths to be used as the dataset.
@@ -30,20 +31,25 @@ class SortedFolderImageDataset(Dataset):
         # Stores each individual sample-label pair.
         self.samples = list()
 
-        # Reads each of the image paths into a list and adds the appropriate label to s corresponding list.
+        # Stores a transformation function that should be applied to samples on retrieval.
+        self.transform = transform
+
+        # Reads each of the image paths into a list and adds the appropriate label to corresponding list.
+        # Labels correspond to the index of the associated folder path in self.folder_labels
         images = list()
-        labels = list()
+        labels = [i for i in range(len(self.folder_labels))]
 
         for i in range(len(folder_paths)):
-            folder_images, folder_labels = self._process_folder(folder_paths[i], folder_labels[i], percent_range)
-            images += folder_images
-            labels += folder_labels
+            new_images, new_labels = self._process_folder(folder_paths[i], labels[i], percent_range)
+            images += new_images
+            labels += new_labels
 
         # Zip the images and labels into a single list of tuples and randomize the order.
         self.samples = list(zip(images, labels))
-        random.shuffle(self.samples)
 
-        #
+        if shuffle == True:
+            random.shuffle(self.samples)
+
 
     def _process_folder(self, folder_path: str, label, percent_range: tuple[float, float]):
         '''
@@ -84,6 +90,42 @@ class SortedFolderImageDataset(Dataset):
         sample = self.samples[index]
         path = sample[0]
         label = sample[1]
-        image = read_image(path)
+        image = Image.open(path)
+        # Resize and pad the image
+        image = self._resize(image)
+
+        image = self._pad(image)
+
+        # If self.transform isn't set to None, apply it to the image.
+        if self.transform != None:
+            image = self.transform(image)
 
         return image, label
+
+    def _resize(self, image, max_size: int = 500):
+
+        width, height = image.size
+
+        if (width > height):
+            scale_factor = max_size / width
+            final_height = int(height * scale_factor)
+            new_size = (max_size, final_height)
+        else:
+            scale_factor = max_size / height
+            final_width = int(width * scale_factor)
+            new_size = (final_width, max_size)
+
+        return image.resize(new_size)
+
+    def _pad(self, image, size: tuple[int, int] = (500, 500)):
+
+        # Generates a new white padding image
+        result = Image.new(image.mode, (size[0], size[1]), 0)
+
+        # Pastes the original image over it from the upper left corner.
+        result.paste(image, (0, 0))
+
+        # Convert to grayscale
+
+        result = ImageOps.grayscale(result)
+        return result

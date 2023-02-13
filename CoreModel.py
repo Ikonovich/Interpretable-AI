@@ -22,7 +22,7 @@ class CoreNetwork(nn.Module):
             nn.ReLU()
         )
 
-        self.denseOne = nn.Linear(in_features=28 * 28 * 5, out_features=10, bias=True)
+        self.denseOne = nn.Linear(in_features=500 * 500 * 5, out_features=10, bias=True)
 
         torch.nn.init.xavier_uniform_(self.denseOne.weight)  # initialize parameters
         #
