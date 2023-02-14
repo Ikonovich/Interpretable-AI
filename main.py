@@ -2,9 +2,29 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torch.autograd import Variable
+from torch.utils.data import DataLoader
+
+from tqdm import tqdm
+
 
 from CoreModel import CoreNetwork
 from DataHandler import get_tiny_imagenet_loader, mnist_baseline
+
+
+def run_resnet(dataloader: DataLoader):
+    model = torchvision.models.resnet50(weights="DEFAULT")
+    #model.eval().cuda()  # Needs CUDA, don't bother on CPUs
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for x, y in tqdm(dataloader):
+            #y_pred = model(x.cuda())
+            y_pred = model(x)
+
+            correct += (y_pred.argmax(axis=1) == y.data).sum().item()
+            total += len(y)
+    print(correct / total)
 
 if __name__ == "__main__":
     batch_size = 1
@@ -32,17 +52,10 @@ if __name__ == "__main__":
     # model = CoreNetwork().to(device)
 
     # Pre-trained resnet
-    model = torchvision.models.resnet50(weights="DEFAULT")
-
-
-    print("Model: " + str(model))
-
-    training_epochs = 15
-    total_batch = len(train_dataset) // batch_size
+    run_resnet(test_dataloader)
 
     print('Size of the training dataset is {}'.format(len(train_dataset)))
     print('Size of the testing dataset is {}'.format(len(test_dataset)))
 
-    model.train(dataloader=train_dataloader)
 
     print('Learning Finished!')

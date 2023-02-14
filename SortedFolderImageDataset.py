@@ -93,13 +93,14 @@ class SortedFolderImageDataset(Dataset):
         path = sample[0]
         label = sample[1]
         image = Image.open(path)
+        image = image.convert('RGB')
         # Resize and pad the image
-        image = self._resize(image)
+        #image = self._resize(image)
 
-        image = self._pad(image)
+        #image = self._pad(image)
 
         # Convert to grayscale
-        image = ImageOps.grayscale(image)
+        #image = ImageOps.grayscale(image)
 
         # If self.transform isn't set to None, apply it to the image.
         if self.transform != None:
