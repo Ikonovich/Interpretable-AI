@@ -2,6 +2,7 @@ import math
 import os
 import random
 
+import torch
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 
@@ -12,7 +13,7 @@ class SortedFolderImageDataset(Dataset):
     Used to access an image dataset that has been pre-sorted into folders, as a Pytorch dataset.
     '''
 
-    def __init__(self, folder_paths: list[str], folder_labels: list, percent_range: tuple[float, float] = (0, 1), transform = None, shuffle: bool = True):
+    def __init__(self, folder_paths: list[str], folder_labels: list, percent_range: tuple[float, float]=(0, 1), transform=None, shuffle: bool=True):
         '''
         Indexes of labels must match the appropriate folder path's index in the corresponding list.
         :param folder_paths: A list of folder paths to be used as the dataset.
@@ -67,11 +68,12 @@ class SortedFolderImageDataset(Dataset):
         startPercent = percent_range[0]
         endPercent = percent_range[1]
 
-        startIndex = math.floor(percent_range[0] * len(files))
-        endIndex = 0
+        startIndex = math.ceil(percent_range[0] * len(files))
+        endIndex = min(math.ceil(percent_range[1] * len(files)), len(files))
 
 
-        for filepath in files:
+        for index in range(startIndex, endIndex):
+            filepath = files[index]
             img = os.path.join(folder_path, filepath)
             images.append(img)
             labels.append(label)
@@ -96,11 +98,15 @@ class SortedFolderImageDataset(Dataset):
 
         image = self._pad(image)
 
+        # Convert to grayscale
+        image = ImageOps.grayscale(image)
+
         # If self.transform isn't set to None, apply it to the image.
         if self.transform != None:
             image = self.transform(image)
 
-        return image, label
+
+        return image, torch.tensor(label, dtype=torch.long)
 
     def _resize(self, image, max_size: int = 500):
 
@@ -125,7 +131,4 @@ class SortedFolderImageDataset(Dataset):
         # Pastes the original image over it from the upper left corner.
         result.paste(image, (0, 0))
 
-        # Convert to grayscale
-
-        result = ImageOps.grayscale(result)
         return result

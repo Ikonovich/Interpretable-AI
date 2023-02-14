@@ -1,5 +1,6 @@
 from torch.utils.data import DataLoader
 import torchvision.datasets as dsets
+import torchvision.transforms as transforms
 
 
 from SortedFolderImageDataset import SortedFolderImageDataset
@@ -20,7 +21,10 @@ def mnist_baseline(transform):
 
     return mnist_train, mnist_test
 
-def get_tiny_imagenet_loader(transform=None, shuffle: bool = True):
+def get_tiny_imagenet_loader(shuffle: bool = True):
+    transform = transforms.ToTensor()
+
+
     paths = list()
     labels = list()
 

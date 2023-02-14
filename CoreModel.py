@@ -6,25 +6,28 @@ import torch.optim as optim
 import keras
 from keras import layers
 from torch.autograd import Variable
+from torch.utils.data import DataLoader
 
 
 class CoreNetwork(nn.Module):
 
-    def __init__(self, learning_rate=0.5):
+    def __init__(self):
         super(CoreNetwork, self).__init__()
 
-        # hyperparameters
-        batch_size = 32
-        keep_prob = 1
+        self.loss_func = torch.nn.CrossEntropyLoss()  # Softmax is internally computed.
+        self.optimizer = None
 
         self.convOne = nn.Sequential(
-            nn.Conv2d(1, 5, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(1, 10, kernel_size=5, stride=1, padding=2),
+            nn.MaxPool2d(kernel_size=3, stride=3),
             nn.ReLU()
         )
 
-        self.denseOne = nn.Linear(in_features=500 * 500 * 5, out_features=10, bias=True)
-
+        self.denseOne = nn.Linear(in_features=27556 * 10, out_features=1000, bias=True)
+        self.denseTwo = nn.Linear(in_features=1000, out_features=10, bias=True)
         torch.nn.init.xavier_uniform_(self.denseOne.weight)  # initialize parameters
+        torch.nn.init.xavier_uniform_(self.denseTwo.weight)
+
         #
         # self.loss_function = torch.nn.CrossEntropyLoss()  # Softmax is internally computed.
         # self.optimizer = torch.optim.SGD(params=self.parameters(), lr=learning_rate)
@@ -68,41 +71,46 @@ class CoreNetwork(nn.Module):
         # self.fc2 = torch.nn.Linear(625, 10, bias=True)
         # torch.nn.init.xavier_uniform_(self.fc2.weight)  # initialize parameters
 
-    # Runs a single training batch
-    def run_batch(self, batch_x, batch_y):
-        train_cost = []
-        accurate = 0
-        iterations = 0
-        avg_cost = 0
+    def train(self, dataloader: DataLoader, learning_rate=0.01):
+        # Trains the network with a given data loader.
 
+        # Weight decay represents a constant of L2 regularization rather than actual weight decay
+        # i.e  weight_decay=1e-5
+        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=learning_rate)
 
-        if len(batch_x) != len(batch_y):
-            raise IndexError
+        # Stores the number of correct predictions
+        total_correct = 0
+        iteration = 1
+        print("Beginning training.")
+        for i, (batch_X, batch_Y) in enumerate(dataloader):
+            X = Variable(batch_X)  # image is already size of (28x28), no reshape
+            Y = Variable(batch_Y)  # label is not one-hot encoded
 
-        for x, y in zip(batch_x, batch_y):
-            iterations += 1
+            result = self.iterate(X, Y, training=True)
 
-            # Run forward propagation
-            result = self(x)
-            correct = torch.zeros(10)
-            correct[int(y)] = 1
-            cost = self.loss_function(result, correct)
+            if result == Y.data:
+                total_correct += 1
+            if iteration % 5 == 1:
+                accuracy = total_correct/iteration
+                print("\t Iteration: {},\t accuracy = {}             \r".format(iteration, accuracy))
 
+            iteration += 1
+
+    def iterate(self, X, Y, training=False):
+        # Runs a single iteration of the network.
+        self.optimizer.zero_grad()  # <= initialization of the gradients
+
+        # forward propagation
+        hypothesis = self(X)
+
+        if training == True:
+            cost = self.loss_func(hypothesis, Y)  # <= compute the loss function
             # Backward propagation
-            cost.backward()  # Compute the gradient of the loss function
-            self.optimizer.step()  # Update the gradients
+            cost.backward()  # <= compute the gradient of the loss/cost function
+            self.optimizer.step()  # <= Update the gradients
 
-            # Print some performance to monitor the training
-            prediction = torch.argmax(result)
-            if prediction == int(y.data): accurate += 1
-            train_cost.append(cost.item())
-            if iterations % 200 == 0:
-                print("Epoch= {},\t batch = {},\t cost = {:2.4f},\t accuracy = {}".format(1, iterations, train_cost[-1],
-                                                                                          accurate / iterations))
-
-            avg_cost += cost.data / iterations
-
-        print("[Epoch: {:>4}], averaged cost = {:>.9}".format(1, avg_cost))
+        # Return the prediction
+        return hypothesis.data.max(dim=1)[1]
 
     # Runs a single iteration of forward propagation on the created network.
     def forward(self, sample):
@@ -110,11 +118,9 @@ class CoreNetwork(nn.Module):
         # layerTwo = self.layerTwo(layerOne)
         # return layerTwo
         out = self.convOne(sample)
-        #out = self.layerTwo(out)
-        #out = self.layerThree(out)
         out = out.view(out.size(0), -1)   # Flatten them for FC
         out = self.denseOne(out)
-        #out = self.fc2(out)
+        out = self.denseTwo(out)
         return out
 
 
