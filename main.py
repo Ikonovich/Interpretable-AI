@@ -22,7 +22,9 @@ def run_resnet(dataloader: DataLoader):
             #y_pred = model(x.cuda())
             y_pred = model(x)
 
-            correct += (y_pred.argmax(axis=1) == y.data).sum().item()
+            if y_pred.argmax(axis=1) == y.data:
+                correct += 1
+
             total += len(y)
     print(correct / total)
 

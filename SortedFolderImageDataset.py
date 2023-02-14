@@ -38,7 +38,10 @@ class SortedFolderImageDataset(Dataset):
         # Reads each of the image paths into a list and adds the appropriate label to corresponding list.
         # Labels correspond to the index of the associated folder path in self.folder_labels
         images = list()
-        labels = [i for i in range(len(self.folder_labels))]
+        #labels = [i for i in range(len(self.folder_labels))]
+
+        # These correspond to the imagenet IDs
+        labels = [983, 353, 248, 607, 624, 679, 945]
 
         for i in range(len(folder_paths)):
             new_images, new_labels = self._process_folder(folder_paths[i], labels[i], percent_range)
